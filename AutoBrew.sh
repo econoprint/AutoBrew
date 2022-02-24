@@ -38,6 +38,14 @@ else
     exit 1
 fi
 
+# Verify the TargetUser has admin group
+if /usr/bin/id -Gn sysadmin | /usr/bin/grep -q -w admin > /dev/null 2>&1; then
+  /bin/echo "${TargetUser} has admin group"
+else
+  /bin/echo "${TargetUser} does NOT have admin group"
+  exit 1
+fi
+
 # Install Homebrew | strip out all interactive prompts
 /bin/bash -c "$(curl -fsSL \
     https://raw.githubusercontent.com/Homebrew/install/master/install.sh | \
