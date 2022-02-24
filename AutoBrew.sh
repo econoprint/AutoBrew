@@ -12,16 +12,35 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 BREW_INSTALL_LOG=$(mktemp)
 
 # Get current logged in user
-TargetUser=$(echo "show State:/Users/ConsoleUser" | \
+ConsoleUser=$(echo "show State:/Users/ConsoleUser" | \
     scutil | awk '/Name :/ && ! /loginwindow/ { print $3 }')
 
-# Check if parameter passed to use pre-defined user
-if [ -n "$3" ]; then
-    # Supporting running the script in Jamf with no specialization via Self Service
-    TargetUser=$3
-elif [ -n "$1" ]; then
-    # Fallback case for the command line initiated method
-    TargetUser=$1
+# Determine what the correct target user should be by making an educated guess if the script is run from JAMF or not
+ComputerName=$(scutil --get ComputerName)
+FirstChar=$(printf '%s' "$1" | cut -c 1)
+if [ "$FirstChar" = "/" ] && [ "$2" = "$ComputerName" ]; then
+  # 1st argument started with a / (indicates a mount point), 2nd argument matched the computer name
+  # We are probably being run by a JAMF policy.
+  if [ -n "$4" ]; then
+    # There was a 4th argument, we will assume this is an override for the user specified by JAMF in 3rd argument.
+    TargetUser="$4"
+  elif [ -n "$3" ]; then
+    # No 4th argument, but there was a 3rd argument (JAMF always gives the user as 3rd), use that.
+    TargetUser="$3"
+  elif [ -n "$ConsoleUser" ]; then
+    # No 3rd argument, but there is a console user, use that. This would be odd in a JAMF run.
+    TargetUser="$ConsoleUser"
+  fi
+else
+  # The 1st arg doesn't start with / (probably isn't a mount point), and the 2nd arg isn't the computer name
+  # We probably aren't running as a Jamf policy run
+  if [ -n "$1" ]; then
+    # There was a 1st argument, use that.
+    TargetUser="$1"
+  elif [ -n "$ConsoleUser" ]; then
+    # There was a console user, use that.
+    TargetUser="$ConsoleUser"
+  fi
 fi
 
 # Ensure TargetUser isn't empty
